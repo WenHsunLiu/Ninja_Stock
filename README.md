@@ -56,3 +56,12 @@ python3 scripts/daily_schedule.py --now
 # 啟動常駐排程監聽，每日 17:30 自動執行
 python3 scripts/daily_schedule.py --time 17:30
 ```
+
+## 雲端全自動化排程 (GitHub Actions)
+即使本機電腦休眠或關機，專案已配置 GitHub Actions 雲端工作流：
+- **觸發時機**：每週一至週五台灣時間 17:30 (UTC 09:30) 自動執行。
+- **手動觸發**：在 GitHub 倉庫的 `Actions` 分頁中，選擇 `Daily Stock Data Sync` 即可手動一鍵執行。
+- **必要環境變數 (GitHub Secrets)**：
+  - `SUPABASE_URL`
+  - `SUPABASE_KEY`
+  - `FINMIND_API_TOKEN`
