@@ -1,0 +1,74 @@
+name: Daily Stock Data Sync
+
+# 觸發條件
+on:
+  # 1. 定時排程: 週一至週五 台灣時間 17:30 (UTC 09:30)
+  # 此時台股收盤、三大法人買賣超與融資券籌碼已全數結算公佈
+  schedule:
+    - cron: '30 9 * * 1-5'
+
+  # 2. 手動觸發: 可直接在 GitHub 網頁介面上隨時點擊「Run workflow」
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '同步動作 (all / bundle / stocks)'
+        required: true
+        default: 'bundle'
+        type: choice
+        options:
+          - bundle
+          - all
+          - stocks
+      source:
+        description: '同步標的來源 (core / watchlist / all_active)'
+        required: true
+        default: 'core'
+        type: choice
+        options:
+          - core
+          - watchlist
+          - all_active
+      days:
+        description: '回溯天數 (預設 3 天)'
+        required: false
+        default: '3'
+
+jobs:
+  sync:
+    name: Run Daily FinMind to Supabase Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 檢出專案程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安裝相依套件
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 執行資料同步任務 (定時排程預設抓取 watchlist 與 core 標的)
+        if: github.event_name == 'schedule'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
+        run: |
+          # 定時排程: 自動同步自選股 (若無自選股則自動退回 core 標的) 最近 3 天數據
+          python scripts/sync_data.py --action bundle --source watchlist --days 3
+
+      - name: 執行資料同步任務 (手動觸發指定參數)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
+        run: |
+          python scripts/sync_data.py --action ${{ inputs.action }} --source ${{ inputs.source }} --days ${{ inputs.days }}
