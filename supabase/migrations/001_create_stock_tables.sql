@@ -119,16 +119,36 @@ ALTER TABLE public.watchlist ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sync_logs ENABLE ROW LEVEL SECURITY;
 
 -- 建立允許公開讀取 (anon / authenticated 均可 SELECT，方便跨裝置讀取行情)
+DROP POLICY IF EXISTS "Allow public read on stocks" ON public.stocks;
 CREATE POLICY "Allow public read on stocks" ON public.stocks FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read on daily_quotes" ON public.daily_quotes;
 CREATE POLICY "Allow public read on daily_quotes" ON public.daily_quotes FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read on institutional_investors" ON public.institutional_investors;
 CREATE POLICY "Allow public read on institutional_investors" ON public.institutional_investors FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read on margin_trading" ON public.margin_trading;
 CREATE POLICY "Allow public read on margin_trading" ON public.margin_trading FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public read on watchlist" ON public.watchlist;
 CREATE POLICY "Allow public read on watchlist" ON public.watchlist FOR SELECT USING (true);
 
 -- 允許已認證身分或後端 Service Role 完整操作
+DROP POLICY IF EXISTS "Allow full access for service role on stocks" ON public.stocks;
 CREATE POLICY "Allow full access for service role on stocks" ON public.stocks FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow full access for service role on daily_quotes" ON public.daily_quotes;
 CREATE POLICY "Allow full access for service role on daily_quotes" ON public.daily_quotes FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow full access for service role on institutional_investors" ON public.institutional_investors;
 CREATE POLICY "Allow full access for service role on institutional_investors" ON public.institutional_investors FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow full access for service role on margin_trading" ON public.margin_trading;
 CREATE POLICY "Allow full access for service role on margin_trading" ON public.margin_trading FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow full access for service role on watchlist" ON public.watchlist;
 CREATE POLICY "Allow full access for service role on watchlist" ON public.watchlist FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow full access for service role on sync_logs" ON public.sync_logs;
 CREATE POLICY "Allow full access for service role on sync_logs" ON public.sync_logs FOR ALL USING (true);
