@@ -2,7 +2,6 @@ import logging
 from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
-from FinMind.data import DataLoader
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -21,6 +20,8 @@ class FinMindFetcher:
 
     def __init__(self, api_token: Optional[str] = None):
         self.api_token = api_token or settings.FINMIND_API_TOKEN
+        # 延遲載入 DataLoader，避免模組載入時過早執行 FinMind 內部套件引發全域事件迴圈衝突
+        from FinMind.data import DataLoader
         self.loader = DataLoader()
         if self.api_token:
             try:
