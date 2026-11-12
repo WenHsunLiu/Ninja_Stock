@@ -57,13 +57,26 @@ st.markdown(
 )
 
 
-@st.cache_resource
-def get_service():
-    return PortfolioService()
+try:
+    supabase = get_supabase_client()
+    service = PortfolioService(client=supabase)
+except Exception as e:
+    st.title("🥷 Ninja_Stock 台股投資管理系統")
+    st.error("⚠️ 尚未偵測到雲端資料庫連線金鑰 (Secrets)！")
+    st.info(
+        """
+        ### 💡 啟用步驟（只需 30 秒）：
+        請在網頁右下角點擊 **「Manage app」** ➔ 點擊 **三個點點 `...`** ➔ 選擇 **「Secrets」**，貼上您的金鑰設定：
 
-
-service = get_service()
-supabase = get_supabase_client()
+        ```toml
+        SUPABASE_URL = "https://raoxhpcamwqygrhpwuoe.supabase.co"
+        SUPABASE_KEY = "請填入您的_SUPABASE_KEY"
+        FINMIND_API_TOKEN = ""
+        ```
+        儲存後畫面將自動載入！
+        """
+    )
+    st.stop()
 
 
 # -------------------------------------------------------------
