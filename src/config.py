@@ -2,20 +2,41 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 載入專案根目錄的 .env 檔案
+# 載入專案根目錄的 .env 檔案 (本地開發時使用)
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def _get_env_or_secret(key: str, default: str = "") -> str:
+    """
+    動態讀取環境變數或 Streamlit Secrets
+    銜接規則:
+    1. 優先嘗試讀取 Streamlit Secrets (當部署於 Streamlit Community Cloud 時)
+    2. 其次讀取系統環境變數或 .env 檔案 (本地端或 GitHub Actions 時)
+    """
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and key in st.secrets:
+            return str(st.secrets[key])
+    except Exception:
+        pass
+    return os.getenv(key, default)
+
+
 class Settings:
-    """全域專案設定與環境變數管理"""
+    """全域專案設定與環境變數管理 (動態屬性，確保跨本機、CI/CD 與雲端跨平台無縫銜接)"""
 
-    # Supabase 連線設定
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
+    @property
+    def SUPABASE_URL(self) -> str:
+        return _get_env_or_secret("SUPABASE_URL", "")
 
-    # FinMind API Token (免費註冊後取得，未設定則受限於免 token 速率限制)
-    FINMIND_API_TOKEN: str = os.getenv("FINMIND_API_TOKEN", "")
+    @property
+    def SUPABASE_KEY(self) -> str:
+        return _get_env_or_secret("SUPABASE_KEY", "")
+
+    @property
+    def FINMIND_API_TOKEN(self) -> str:
+        return _get_env_or_secret("FINMIND_API_TOKEN", "")
 
     # 預設核心追蹤股票清單 (台灣重要權值股與高人氣 ETF)
     CORE_STOCKS: list[str] = [
@@ -41,14 +62,13 @@ class Settings:
         "2303",   # 聯電
     ]
 
-    @classmethod
-    def validate(cls) -> list[str]:
+    def validate(self) -> list[str]:
         """驗證必要環境變數"""
         errors = []
-        if not cls.SUPABASE_URL:
-            errors.append("未設定 SUPABASE_URL，請檢查 .env 檔案")
-        if not cls.SUPABASE_KEY:
-            errors.append("未設定 SUPABASE_KEY，請檢查 .env 檔案")
+        if not self.SUPABASE_URL:
+            errors.append("未設定 SUPABASE_URL，請檢查 .env 或 Streamlit Secrets")
+        if not self.SUPABASE_KEY:
+            errors.append("未設定 SUPABASE_KEY，請檢查 .env 或 Streamlit Secrets")
         return errors
 
 

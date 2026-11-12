@@ -127,10 +127,29 @@ with st.sidebar:
 # -------------------------------------------------------------
 # 主畫面：頂部 KPI 指標卡片 (版本 2 原型)
 # -------------------------------------------------------------
-st.header("📊 投資組合即時總覽", anchor=False)
+st.title("🥷 Ninja_Stock 台股投資管理儀表板")
+st.caption("雲端跨裝置即時總覽 • 自動技術分析 • 新手停損停利守護")
 
-kpis = service.get_portfolio_kpis()
-holdings = service.get_holdings_summary()
+with st.spinner("⏳ 正在連線雲端資料庫載入最新持股與行情..."):
+    try:
+        kpis = service.get_portfolio_kpis()
+    except Exception as e:
+        st.info("💡 尚未在 Supabase 建立 Sprint 2 資料表，或目前暫無庫存資料。已為您切換為展示模式。")
+        kpis = {
+            "total_market_value": 0,
+            "total_cost": 0,
+            "total_unrealized_pnl": 0,
+            "total_unrealized_roi": 0.0,
+            "total_realized_pnl": 0,
+            "win_rate": 0.0,
+            "total_trades": 0,
+            "holdings_count": 0,
+        }
+
+    try:
+        holdings = service.get_holdings_summary()
+    except Exception as e:
+        holdings = []
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -245,15 +264,18 @@ else:
 
 if selected_stock:
     # 抓取最近 60 天歷史行情繪製 K 線
-    q_res = (
-        supabase.table("daily_quotes")
-        .select("date, open, high, low, close, volume")
-        .eq("stock_id", selected_stock)
-        .order("date", desc=False)
-        .limit(60)
-        .execute()
-    )
-    quote_data = q_res.data or []
+    try:
+        q_res = (
+            supabase.table("daily_quotes")
+            .select("date, open, high, low, close, volume")
+            .eq("stock_id", selected_stock)
+            .order("date", desc=False)
+            .limit(60)
+            .execute()
+        )
+        quote_data = q_res.data or []
+    except Exception as e:
+        quote_data = []
 
     if quote_data:
         df_k = pd.DataFrame(quote_data)
@@ -322,7 +344,10 @@ if selected_stock:
 # 歷史交易明細記錄 (Transactions History)
 # -------------------------------------------------------------
 with st.expander("📜 查看歷史完整交易紀錄與帳本"):
-    history = service.get_transactions_history(limit=30)
+    try:
+        history = service.get_transactions_history(limit=30)
+    except Exception as e:
+        history = []
     if not history:
         st.write("尚無歷史交易紀錄。")
     else:
