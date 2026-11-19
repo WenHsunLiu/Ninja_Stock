@@ -2,9 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
-import os
-
-from src.services.portfolio_service import PortfolioService
+from src.services.portfolio_service import PortfolioService, TradeValidationError
 from src.db.client import get_supabase_client
 
 # 設置 Streamlit 頁面設定
@@ -60,22 +58,10 @@ st.markdown(
 try:
     supabase = get_supabase_client()
     service = PortfolioService(client=supabase)
-except Exception as e:
+except Exception:
     st.title("🥷 Ninja_Stock 台股投資管理系統")
-    st.error("⚠️ 尚未偵測到雲端資料庫連線金鑰 (Secrets)！")
-    st.info(
-        """
-        ### 💡 啟用步驟（只需 30 秒）：
-        請在網頁右下角點擊 **「Manage app」** ➔ 點擊 **三個點點 `...`** ➔ 選擇 **「Secrets」**，貼上您的金鑰設定：
-
-        ```toml
-        SUPABASE_URL = "https://raoxhpcamwqygrhpwuoe.supabase.co"
-        SUPABASE_KEY = "請填入您的_SUPABASE_KEY"
-        FINMIND_API_TOKEN = ""
-        ```
-        儲存後畫面將自動載入！
-        """
-    )
+    st.error("⚠️ 無法初始化資料庫連線。")
+    st.info("請由管理者檢查伺服器的私密設定。")
     st.stop()
 
 
@@ -130,8 +116,10 @@ with st.sidebar:
                         roi = res.get("realized_roi", 0)
                         st.success(f"✅ 成功記錄賣出 {stock_id}！已實現損益: NT$ {pnl:,.0f} ({roi:+.2f}%)")
                     st.rerun()
-                except Exception as e:
-                    st.error(f"❌ 交易失敗: {str(e)}")
+                except TradeValidationError as error:
+                    st.error(f"❌ {error}")
+                except Exception:
+                    st.error("❌ 無法確認交易結果。請先檢查交易帳本與持股，再決定是否重新送出。")
 
     st.markdown("---")
     st.info("💡 每天 17:30 GitHub Actions 會自動更新最新收盤價與三大法人籌碼。")

@@ -5,9 +5,15 @@ from src.config import settings
 from src.fetchers.finmind import FinMindFetcher, INVESTOR_TYPE_MAP
 
 
-def test_config_settings():
-    assert settings.SUPABASE_URL != ""
-    assert settings.SUPABASE_KEY != ""
+def test_config_settings(monkeypatch):
+    import streamlit
+
+    monkeypatch.setattr(streamlit, "secrets", {})
+    monkeypatch.setenv("SUPABASE_URL", "https://db.example.invalid")
+    monkeypatch.setenv("SUPABASE_KEY", "synthetic-test-key")
+
+    assert settings.SUPABASE_URL == "https://db.example.invalid"
+    assert settings.SUPABASE_KEY == "synthetic-test-key"
     assert len(settings.CORE_STOCKS) > 0
     assert "2330" in settings.CORE_STOCKS
     assert "0050" in settings.CORE_STOCKS

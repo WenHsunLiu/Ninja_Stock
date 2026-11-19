@@ -34,8 +34,9 @@ env/
 
 # Environment Variables & Secrets (CRITICAL)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+/.streamlit/secrets.toml
 *.key
 *.pem
 

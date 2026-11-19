@@ -13,7 +13,10 @@ Ninja_Stock 是一個專為股票數據追蹤、分析與自動化設計的專�
 ```bash
 cp .env.example .env
 ```
-填入您的 Supabase URL 與 API Key。
+在本機 `.env` 填入開發用的 Supabase URL 與 API Key，也可用未追蹤的
+`.streamlit/secrets.toml`。正式服務使用各執行環境的私密設定
+（Streamlit Secrets 或 GitHub Actions Secrets）。操作手冊、共享文件、
+截圖及版控一律只用預留值。受控的本機憑證檔應限制為僅帳號擁有者可讀寫。
 
 ### 2. 本機開發環境
 ```bash

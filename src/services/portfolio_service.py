@@ -7,6 +7,10 @@ from supabase import Client
 from src.db.client import get_supabase_client
 
 
+class TradeValidationError(ValueError):
+    """提交前拒絕的交易，訊息可供交易表單顯示。"""
+
+
 class PortfolioService:
     """個人持股庫存管理與損益結算服務 (專為台股交易規則量身打造)"""
 
@@ -317,14 +321,14 @@ class PortfolioService:
             .execute()
         )
         if not curr_holding.data:
-            raise ValueError(f"您目前並未持有 {stock_id}，無法進行賣出！")
+            raise TradeValidationError(f"您目前並未持有 {stock_id}，無法進行賣出！")
 
         holding = curr_holding.data[0]
         curr_shares = int(holding["shares"])
         cost_price = float(holding["cost_price"])
 
         if shares > curr_shares:
-            raise ValueError(
+            raise TradeValidationError(
                 f"賣出股數 ({shares}) 超過目前在庫持股數 ({curr_shares})！"
             )
 
