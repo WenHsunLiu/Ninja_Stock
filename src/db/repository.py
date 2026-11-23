@@ -18,6 +18,8 @@ class SupabaseRepository:
         records: List[Dict[str, Any]],
         on_conflict: str,
         chunk_size: int = 500,
+        *,
+        ignore_duplicates: bool = False,
     ) -> int:
         """分批將資料寫入指定資料表 (若主鍵衝突則更新)
 
@@ -25,6 +27,7 @@ class SupabaseRepository:
         :param records: 欲寫入的字典列表
         :param on_conflict: 主鍵或唯一鍵欄位名稱 (多欄位以逗號相隔，如 'stock_id,date')
         :param chunk_size: 每批次最大寫入筆數 (預設 500 避免超出 PostgREST 限制)
+        :param ignore_duplicates: 主鍵衝突時保留既有資料
         :return: 成功寫入/更新的總筆數
         """
         if not records:
@@ -38,16 +41,31 @@ class SupabaseRepository:
             try:
                 res = (
                     self.client.table(table)
-                    .upsert(chunk, on_conflict=on_conflict)
+                    .upsert(
+                        chunk, on_conflict=on_conflict, ignore_duplicates=ignore_duplicates
+                    )
                     .execute()
                 )
-                count = len(res.data) if res.data else len(chunk)
-                total_saved += count
+                returned_count = len(res.data or [])
+                total_saved += returned_count if ignore_duplicates else returned_count or len(chunk)
             except Exception as e:
                 logger.error(f"寫入資料表 [{table}] 發生錯誤 (批次 {i}~{i+len(chunk)}): {e}")
                 raise e
 
         return total_saved
+
+    def get_existing_stock_ids(self, stock_ids: List[str]) -> set[str]:
+        """查詢指定標的是否已有基本資料，包含停用標的。"""
+        existing = set()
+        for start in range(0, len(stock_ids), 100):
+            response = (
+                self.client.table("stocks")
+                .select("stock_id")
+                .in_("stock_id", stock_ids[start : start + 100])
+                .execute()
+            )
+            existing.update(row["stock_id"] for row in response.data or [])
+        return existing
 
     def log_sync(
         self,

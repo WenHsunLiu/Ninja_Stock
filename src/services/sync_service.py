@@ -187,57 +187,79 @@ class SyncService:
         )
         return total_saved
 
+    def _prepare_stock_references(self, stock_ids: List[str]) -> tuple[List[str], List[str]]:
+        """補齊行情外鍵所需的基本資料，回傳可同步與無法識別的標的。"""
+        stock_ids = list(dict.fromkeys(stock_ids))
+        existing = self.repo.get_existing_stock_ids(stock_ids)
+        missing = set(stock_ids) - existing
+        if missing:
+            records = {
+                record["stock_id"]: record
+                for record in self.fetcher.fetch_stock_info()
+                if record["stock_id"] in missing
+            }
+            if records:
+                saved = self.repo.batch_upsert(
+                    table="stocks",
+                    records=list(records.values()),
+                    on_conflict="stock_id",
+                    ignore_duplicates=True,
+                )
+                existing.update(records)
+                print(f"  股票基本資料補登 {saved} 檔。")
+
+        ready = [stock_id for stock_id in stock_ids if stock_id in existing]
+        unresolved = [stock_id for stock_id in stock_ids if stock_id not in existing]
+        return ready, unresolved
+
     def sync_stock_bundle(
         self, stock_ids: List[str], start_date: str, end_date: str
     ) -> Dict[str, int]:
         """單一循環同時同步日K、三大法人、融資券（減少股票遍歷次數）"""
+        stock_ids, unresolved = self._prepare_stock_references(stock_ids)
+        problems = []
+        if unresolved:
+            message = f"股票基本資料缺少對應標的：{', '.join(unresolved)}"
+            logger.warning(message)
+            problems.append(message)
+
         total_stocks = len(stock_ids)
         print(f"\n📦 整合同步個股數據 (日K + 三大法人 + 融資券)，共 {total_stocks} 檔 (區間: {start_date} ~ {end_date})...")
 
+        datasets = (
+            (
+                "daily_quotes", "daily_quotes", "日K",
+                self.fetcher.fetch_daily_quotes, "stock_id,date",
+            ),
+            (
+                "institutional", "institutional_investors", "法人",
+                self.fetcher.fetch_institutional_investors, "stock_id,date,investor_type",
+            ),
+            (
+                "margin", "margin_trading", "資券",
+                self.fetcher.fetch_margin_trading, "stock_id,date",
+            ),
+        )
         results = {"daily_quotes": 0, "institutional": 0, "margin": 0}
+        failed_datasets = 0
 
         for idx, sid in enumerate(stock_ids, 1):
-            # 1. 日K
-            try:
-                q_records = self.fetcher.fetch_daily_quotes(sid, start_date, end_date)
-                if q_records:
-                    results["daily_quotes"] += self.repo.batch_upsert(
-                        "daily_quotes", q_records, "stock_id,date"
-                    )
-            except Exception as e:
-                logger.warning(f"{sid} 日K錯誤: {e}")
-            time.sleep(self.request_delay)
+            outcomes = []
+            for dataset, table, label, fetch, on_conflict in datasets:
+                try:
+                    records = fetch(sid, start_date, end_date)
+                    saved = self.repo.batch_upsert(table, records, on_conflict) if records else 0
+                    results[dataset] += saved
+                    outcomes.append(f"{label}：寫入 {saved} 筆")
+                except Exception as error:
+                    failed_datasets += 1
+                    logger.warning("%s %s錯誤: %s", sid, label, error)
+                    outcomes.append(f"{label}：失敗")
+                time.sleep(self.request_delay)
+            print(f"  [{idx}/{total_stocks}] {sid}: {', '.join(outcomes)}")
 
-            # 2. 三大法人
-            try:
-                inst_records = self.fetcher.fetch_institutional_investors(
-                    sid, start_date, end_date
-                )
-                if inst_records:
-                    results["institutional"] += self.repo.batch_upsert(
-                        "institutional_investors",
-                        inst_records,
-                        "stock_id,date,investor_type",
-                    )
-            except Exception as e:
-                logger.warning(f"{sid} 三大法人錯誤: {e}")
-            time.sleep(self.request_delay)
-
-            # 3. 融資融券
-            try:
-                m_records = self.fetcher.fetch_margin_trading(sid, start_date, end_date)
-                if m_records:
-                    results["margin"] += self.repo.batch_upsert(
-                        "margin_trading", m_records, "stock_id,date"
-                    )
-            except Exception as e:
-                logger.warning(f"{sid} 融資券錯誤: {e}")
-            time.sleep(self.request_delay)
-
-            print(
-                f"  [{idx}/{total_stocks}] {sid}: 完成同步 (日K: {len(q_records) if 'q_records' in locals() and q_records else 0} 筆, "
-                f"法人: {len(inst_records) if 'inst_records' in locals() and inst_records else 0} 筆, "
-                f"資券: {len(m_records) if 'm_records' in locals() and m_records else 0} 筆)"
-            )
-
+        if failed_datasets:
+            problems.append(f"{failed_datasets} 個標的資料集同步失敗")
+        if problems:
+            raise RuntimeError(f"行情同步未完成：{'，'.join(problems)}")
         return results
