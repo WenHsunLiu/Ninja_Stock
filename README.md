@@ -13,7 +13,7 @@ Ninja_Stock 是一個專為股票數據追蹤、分析與自動化設計的專�
 ```bash
 cp .env.example .env
 ```
-在本機 `.env` 填入開發用的 Supabase URL 與 API Key，也可用未追蹤的
+在本機 `.env` 填入開發用的 Supabase URL 與 publishable key，也可用未追蹤的
 `.streamlit/secrets.toml`。正式服務使用各執行環境的私密設定
 （Streamlit Secrets 或 GitHub Actions Secrets）。操作手冊、共享文件、
 截圖及版控一律只用預留值。受控的本機憑證檔應限制為僅帳號擁有者可讀寫。
@@ -25,10 +25,24 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. 驗證資料庫連線
+### 3. 驗證行情排程連線
 ```bash
 python3 scripts/verify_connection.py
 ```
+
+## 帳本與行情排程權限
+
+- Streamlit 使用 `SUPABASE_URL` 及 `SUPABASE_PUBLISHABLE_KEY`。在網站登入表單輸入預先建立的擁有者帳號及密碼。
+- 行情同步使用另一個 Supabase Auth 帳號。排程可讀寫行情、寫入同步紀錄及取得自選股代號。自選股備註、目標價及私人帳本均由擁有者存取。
+- Supabase Auth 關閉自行註冊及匿名登入。由管理者建好擁有者及行情帳號，取得兩個帳號各自的使用者 UUID。
+- 隔離環境先依序套用 001–004，然後在 SQL Editor 用管理者身分登記這兩個 UUID。請將下列占位符換為角色對應的 UUID。
+
+```sql
+INSERT INTO ninja_stock_private.account_roles (user_id, access_role)
+VALUES ('<擁有者 UUID>', 'owner'), ('<行情帳號 UUID>', 'market_sync');
+```
+
+- 在隔離環境執行 `supabase/tests/application_access.sql`，再驗證擁有者的網頁登入、登出、既有帳本讀寫和行情帳號的同步。正式切換前先備妥兩邊的私密設定、核對可還原備份及備份後的資料變更。004 提交時會收回既有高權限金鑰的應用表存取。安排維護窗口協調套用 SQL、登記帳號及部署程式。
 
 ## 數據同步與自動化排程
 
@@ -66,5 +80,7 @@ python3 scripts/daily_schedule.py --time 17:30
 - **手動觸發**：在 GitHub 倉庫的 `Actions` 分頁中，選擇 `Daily Stock Data Sync` 即可手動一鍵執行。
 - **必要環境變數 (GitHub Secrets)**：
   - `SUPABASE_URL`
-  - `SUPABASE_KEY`
+  - `SUPABASE_PUBLISHABLE_KEY`
+  - `SUPABASE_SYNC_EMAIL`
+  - `SUPABASE_SYNC_PASSWORD`
   - `FINMIND_API_TOKEN`

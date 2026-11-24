@@ -3,7 +3,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 from src.services.portfolio_service import PortfolioService, TradeValidationError
-from src.db.client import get_supabase_client
+from src.config import settings
+from src.db.client import authorize, get_supabase_client, sign_in
 
 # 設置 Streamlit 頁面設定
 st.set_page_config(
@@ -55,15 +56,36 @@ st.markdown(
 )
 
 
-try:
-    supabase = get_supabase_client()
-    service = PortfolioService(client=supabase)
-except Exception:
+if settings.validate():
     st.title("🥷 Ninja_Stock 台股投資管理系統")
     st.error("⚠️ 無法初始化資料庫連線。")
     st.info("請由管理者檢查伺服器的私密設定。")
     st.stop()
 
+access_session = st.session_state.get("owner_access")
+if access_session:
+    try:
+        supabase = authorize(get_supabase_client(), access_session, "owner")
+    except Exception:
+        st.session_state.pop("owner_access", None)
+        access_session = None
+        st.warning("登入已過期或無法驗證帳本權限，請重新登入。")
+
+if not access_session:
+    st.title("🥷 Ninja_Stock 台股投資管理系統")
+    with st.form("owner_login", clear_on_submit=True):
+        email = st.text_input("電子郵件").strip()
+        password = st.text_input("密碼", type="password")
+        if st.form_submit_button("登入"):
+            try:
+                _, st.session_state["owner_access"] = sign_in(email, password, "owner")
+            except Exception:
+                st.error("無法登入帳本，請確認帳號與密碼。")
+            else:
+                st.rerun()
+    st.stop()
+
+service = PortfolioService(client=supabase)
 
 # -------------------------------------------------------------
 # 側邊欄：快速記帳與設定
@@ -71,6 +93,9 @@ except Exception:
 with st.sidebar:
     st.title("🥷 Ninja_Stock")
     st.caption("雲端跨裝置台股投資管理系統")
+    if st.button("登出"):
+        st.session_state.clear()
+        st.rerun()
 
     st.markdown("---")
     st.subheader("📝 快速買賣記帳")

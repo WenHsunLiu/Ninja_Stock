@@ -10,10 +10,10 @@ def test_config_settings(monkeypatch):
 
     monkeypatch.setattr(streamlit, "secrets", {})
     monkeypatch.setenv("SUPABASE_URL", "https://db.example.invalid")
-    monkeypatch.setenv("SUPABASE_KEY", "synthetic-test-key")
+    monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_synthetic")
 
     assert settings.SUPABASE_URL == "https://db.example.invalid"
-    assert settings.SUPABASE_KEY == "synthetic-test-key"
+    assert settings.SUPABASE_PUBLISHABLE_KEY == "sb_publishable_synthetic"
     assert len(settings.CORE_STOCKS) > 0
     assert "2330" in settings.CORE_STOCKS
     assert "0050" in settings.CORE_STOCKS
