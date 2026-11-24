@@ -1,9 +1,10 @@
-import pytest
+from unittest.mock import Mock
+
 from src.services.portfolio_service import PortfolioService
 
 
 def test_calculate_buy_fee():
-    svc = PortfolioService(client=None)
+    svc = PortfolioService(client=Mock())
     # 1. 一般金額 (10 萬元，6折手續費) -> 100,000 * 0.001425 * 0.6 = 85.5 -> 86 元
     fee1 = svc.calculate_buy_fee(price=100.0, shares=1000, discount=0.6)
     assert fee1 == 86.0
@@ -14,7 +15,7 @@ def test_calculate_buy_fee():
 
 
 def test_calculate_sell_fee_and_tax():
-    svc = PortfolioService(client=None)
+    svc = PortfolioService(client=Mock())
     # 賣出 10 萬元: 手續費 86 元，證券交易稅 0.3% = 300 元
     fee, tax = svc.calculate_sell_fee_and_tax(price=100.0, shares=1000, discount=0.6)
     assert fee == 86.0
@@ -22,7 +23,7 @@ def test_calculate_sell_fee_and_tax():
 
 
 def test_trust_trend_calculation():
-    svc = PortfolioService(client=None)
+    svc = PortfolioService(client=Mock())
     # 投信連買測試
     inst_data = [
         {"investor_type": "投信", "net_volume": 500},

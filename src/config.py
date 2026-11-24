@@ -31,8 +31,16 @@ class Settings:
         return _get_env_or_secret("SUPABASE_URL", "")
 
     @property
-    def SUPABASE_KEY(self) -> str:
-        return _get_env_or_secret("SUPABASE_KEY", "")
+    def SUPABASE_PUBLISHABLE_KEY(self) -> str:
+        return _get_env_or_secret("SUPABASE_PUBLISHABLE_KEY")
+
+    @property
+    def SUPABASE_SYNC_EMAIL(self) -> str:
+        return _get_env_or_secret("SUPABASE_SYNC_EMAIL")
+
+    @property
+    def SUPABASE_SYNC_PASSWORD(self) -> str:
+        return _get_env_or_secret("SUPABASE_SYNC_PASSWORD")
 
     @property
     def FINMIND_API_TOKEN(self) -> str:
@@ -67,8 +75,8 @@ class Settings:
         errors = []
         if not self.SUPABASE_URL:
             errors.append("未設定 SUPABASE_URL，請檢查 .env 或 Streamlit Secrets")
-        if not self.SUPABASE_KEY:
-            errors.append("未設定 SUPABASE_KEY，請檢查 .env 或 Streamlit Secrets")
+        if not self.SUPABASE_PUBLISHABLE_KEY.startswith("sb_publishable_"):
+            errors.append("請設定 SUPABASE_PUBLISHABLE_KEY 為 Supabase 的 publishable key")
         return errors
 
 

@@ -11,15 +11,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.config import settings
-from src.db.client import get_supabase_client
+from src.db.client import get_market_sync_client
 
 REQUIRED_TABLES = [
     "stocks",
     "daily_quotes",
     "institutional_investors",
     "margin_trading",
-    "watchlist",
-    "sync_logs",
 ]
 
 
@@ -29,34 +27,35 @@ def check_setup():
     if errors:
         for err in errors:
             print(f"  ❌ {err}")
-        print("\n💡 請先建立 .env 檔案並填入 SUPABASE_URL 與 SUPABASE_KEY。")
+        print("\n請先依 .env.example 設定資料庫及行情排程帳號。")
         return False
     print("  ✅ 環境變數檢查通過！")
 
     print("\n🔍 [2/2] 測試 Supabase 資料庫連線與資料表狀態...")
     try:
-        supabase = get_supabase_client()
+        supabase = get_market_sync_client()
         missing_tables = []
 
         for table in REQUIRED_TABLES:
             try:
                 # 測試讀取 1 筆資料確認資料表存在且可存取
-                supabase.table(table).select("*").limit(1).execute()
+                supabase.table(table).select("stock_id").limit(1).execute()
                 print(f"  ✅ 資料表 [{table}] 存在且可存取")
-            except Exception as e:
+            except Exception:
                 missing_tables.append(table)
-                print(f"  ❌ 資料表 [{table}] 存取失敗: {e}")
+                print(f"  ❌ 資料表 [{table}] 存取失敗")
 
+        supabase.rpc("ninja_watchlist_symbols").execute()
         if not missing_tables:
-            print("\n🎉 太棒了！所有資料表均已成功建立並就緒！")
+            print("\n行情資料表與自選股代號均可讀取。")
             return True
         else:
             print(f"\n⚠️ 尚有 {len(missing_tables)} 個資料表未建立或無法存取: {missing_tables}")
-            print("💡 請在 Supabase 後台 SQL Editor 貼上並執行 `supabase/migrations/001_create_stock_tables.sql`。")
+            print("請由管理者核對遷移與行情排程帳號的權限。")
             return False
 
-    except Exception as e:
-        print(f"  ❌ 連線到 Supabase 失敗: {e}")
+    except Exception:
+        print("  ❌ 無法驗證行情排程帳號或取得自選股代號")
         return False
 
 

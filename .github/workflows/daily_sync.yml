@@ -58,7 +58,9 @@ jobs:
         if: github.event_name == 'schedule'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SYNC_EMAIL: ${{ secrets.SUPABASE_SYNC_EMAIL }}
+          SUPABASE_SYNC_PASSWORD: ${{ secrets.SUPABASE_SYNC_PASSWORD }}
           FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
         run: |
           # 定時排程: 自動同步自選股 (若無自選股則自動退回 core 標的) 最近 3 天數據
@@ -68,7 +70,9 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SYNC_EMAIL: ${{ secrets.SUPABASE_SYNC_EMAIL }}
+          SUPABASE_SYNC_PASSWORD: ${{ secrets.SUPABASE_SYNC_PASSWORD }}
           FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
         run: |
           python scripts/sync_data.py --action ${{ inputs.action }} --source ${{ inputs.source }} --days ${{ inputs.days }}

@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from src.db.client import get_supabase_client
+from src.db.client import get_market_sync_client
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ class SupabaseRepository:
     """Supabase 資料庫操作封裝層，提供分批寫入、查詢與同步記錄"""
 
     def __init__(self):
-        self.client = get_supabase_client()
+        self.client = get_market_sync_client()
 
     def batch_upsert(
         self,
@@ -76,7 +76,7 @@ class SupabaseRepository:
         message: str,
         started_at: datetime,
         finished_at: Optional[datetime] = None,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> None:
         """寫入同步歷史紀錄到 sync_logs 資料表"""
         try:
             payload = {
@@ -88,11 +88,9 @@ class SupabaseRepository:
                 "started_at": started_at.isoformat(),
                 "finished_at": (finished_at or datetime.now(timezone.utc)).isoformat(),
             }
-            res = self.client.table("sync_logs").insert(payload).execute()
-            return res.data[0] if res.data else None
+            self.client.table("sync_logs").insert(payload, returning="minimal").execute()
         except Exception as e:
             logger.warning(f"寫入同步紀錄 sync_logs 失敗: {e}")
-            return None
 
     def get_active_stock_ids(self, limit: Optional[int] = None) -> List[str]:
         """取得所有已儲存且處於交易中的股票代號"""
@@ -110,11 +108,5 @@ class SupabaseRepository:
 
     def get_watchlist_stock_ids(self) -> List[str]:
         """取得自選股清單中的股票代號"""
-        res = (
-            self.client.table("watchlist")
-            .select("stock_id")
-            .order("stock_id")
-            .execute()
-        )
-        # 去重複
-        return list(dict.fromkeys(row["stock_id"] for row in (res.data or [])))
+        res = self.client.rpc("ninja_watchlist_symbols").execute()
+        return [row["stock_id"] for row in (res.data or [])]
