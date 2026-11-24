@@ -68,7 +68,7 @@ ALTER TABLE public.portfolio_snapshots ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read on holdings" ON public.holdings;
 CREATE POLICY "Allow public read on holdings" ON public.holdings FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Allow full access for service role on holdings" ON public.holdings FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow full access for service role on holdings" ON public.holdings;
 CREATE POLICY "Allow full access for service role on holdings" ON public.holdings FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Allow public read on transactions" ON public.transactions;
