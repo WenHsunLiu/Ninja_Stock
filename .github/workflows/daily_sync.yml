@@ -1,74 +1,84 @@
-name: Daily Stock Data Sync
+name: Schedule sign-in preflight
+run-name: Check Supabase schedule sign-in
 
-# 觸發條件
 on:
-  # 1. 定時排程: 週一至週五 台灣時間 17:30 (UTC 09:30)
-  # 此時台股收盤、三大法人買賣超與融資券籌碼已全數結算公佈
-  schedule:
-    - cron: '30 9 * * 1-5'
-
-  # 2. 手動觸發: 可直接在 GitHub 網頁介面上隨時點擊「Run workflow」
   workflow_dispatch:
     inputs:
       action:
-        description: '同步動作 (all / bundle / stocks)'
         required: true
-        default: 'bundle'
-        type: choice
-        options:
-          - bundle
-          - all
-          - stocks
+        default: bundle
+        type: string
       source:
-        description: '同步標的來源 (core / watchlist / all_active)'
         required: true
-        default: 'core'
-        type: choice
-        options:
-          - core
-          - watchlist
-          - all_active
+        default: core
+        type: string
       days:
-        description: '回溯天數 (預設 3 天)'
-        required: false
         default: '3'
+        type: string
+
+permissions: {}
 
 jobs:
-  sync:
-    name: Run Daily FinMind to Supabase Sync
+  verify:
+    if: github.ref == 'refs/heads/codex/supabase-auth-preflight'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 2
     steps:
-      - name: 檢出專案程式碼
-        uses: actions/checkout@v4
-
-      - name: 設定 Python 環境
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: 安裝相依套件
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: 執行資料同步任務 (定時排程預設抓取 watchlist 與 core 標的)
-        if: github.event_name == 'schedule'
+      - name: Verify the schedule account can sign in
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SYNC_EMAIL: ${{ secrets.SUPABASE_SYNC_EMAIL }}
+          SUPABASE_SYNC_PASSWORD: ${{ secrets.SUPABASE_SYNC_PASSWORD }}
         run: |
-          # 定時排程: 自動同步自選股 (若無自選股則自動退回 core 標的) 最近 3 天數據
-          python scripts/sync_data.py --action bundle --source watchlist --days 3
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
 
-      - name: 執行資料同步任務 (手動觸發指定參數)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          FINMIND_API_TOKEN: ${{ secrets.FINMIND_API_TOKEN }}
-        run: |
-          python scripts/sync_data.py --action ${{ inputs.action }} --source ${{ inputs.source }} --days ${{ inputs.days }}
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          origin = "https://raoxhpcamwqygrhpwuoe.supabase.co"
+          if os.environ["SUPABASE_URL"].strip().rstrip("/") != origin:
+              raise SystemExit("SUPABASE_URL does not match the intended project.")
+          key = os.environ["SUPABASE_PUBLISHABLE_KEY"].strip()
+          if not key.startswith("sb_publishable_"):
+              raise SystemExit("Expected a Supabase publishable key.")
+          email = os.environ["SUPABASE_SYNC_EMAIL"].strip()
+          password = os.environ["SUPABASE_SYNC_PASSWORD"]
+          if "@" not in email or not password:
+              raise SystemExit("Scheduling account credentials are missing or malformed.")
+
+          opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+          def post(path, stage, data=None, bearer=None):
+              headers = {"apikey": key, "Content-Type": "application/json"}
+              if bearer:
+                  headers["Authorization"] = "Bearer " + bearer
+              req = urllib.request.Request(origin + path, data=json.dumps(data or {}).encode(),
+                                           headers=headers, method="POST")
+              try:
+                  with opener.open(req, timeout=12) as response:
+                      return response.read()
+              except urllib.error.HTTPError as error:
+                  raise SystemExit(f"{stage} failed with HTTP {error.code}.") from None
+              except (OSError, ValueError):
+                  raise SystemExit(f"{stage} could not complete.") from None
+
+          raw = post("/auth/v1/token?grant_type=password", "Sign-in",
+                     {"email": email, "password": password})
+          try:
+              session = json.loads(raw)
+              token = session.get("access_token")
+              user = session.get("user") or {}
+          except (AttributeError, ValueError):
+              raise SystemExit("Sign-in returned an unexpected response.") from None
+          if not token:
+              raise SystemExit("Sign-in did not return a session.")
+          post("/auth/v1/logout?scope=local", "Test session sign-out", bearer=token)
+          if (user.get("email") or "").casefold() != email.casefold():
+              raise SystemExit("Signed-in identity did not match the configured address.")
+          print("PASS: the saved scheduling credentials signed in to the intended project and the test session was signed out.")
+          PY
