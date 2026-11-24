@@ -35,14 +35,15 @@ python3 scripts/verify_connection.py
 - Streamlit 使用 `SUPABASE_URL` 及 `SUPABASE_PUBLISHABLE_KEY`。在網站登入表單輸入預先建立的擁有者帳號及密碼。
 - 行情同步使用另一個 Supabase Auth 帳號。排程可讀寫行情、寫入同步紀錄及取得自選股代號。自選股備註、目標價及私人帳本均由擁有者存取。
 - Supabase Auth 關閉自行註冊及匿名登入。由管理者建好擁有者及行情帳號，取得兩個帳號各自的使用者 UUID。
-- 隔離環境先依序套用 001–004，然後在 SQL Editor 用管理者身分登記這兩個 UUID。請將下列占位符換為角色對應的 UUID。
+- 隔離環境先依序套用 001–005，然後在 SQL Editor 用管理者身分登記這兩個 UUID。請將下列占位符換為角色對應的 UUID。
 
 ```sql
 INSERT INTO ninja_stock_private.account_roles (user_id, access_role)
 VALUES ('<擁有者 UUID>', 'owner'), ('<行情帳號 UUID>', 'market_sync');
 ```
 
-- 在隔離環境執行 `supabase/tests/application_access.sql`，再驗證擁有者的網頁登入、登出、既有帳本讀寫和行情帳號的同步。正式切換前先備妥兩邊的私密設定、核對可還原備份及備份後的資料變更。004 提交時會收回既有高權限金鑰的應用表存取。安排維護窗口協調套用 SQL、登記帳號及部署程式。
+- 在隔離環境執行 `supabase/tests/application_access.sql`，再驗證擁有者的網頁登入、登出、既有帳本讀寫和行情帳號的同步。
+- 正式切換前先備妥兩邊的私密設定、核對可還原備份及備份後的資料變更。先套用 004 並登記兩個帳號。這一步保留現行伺服器角色的資料存取，方便部署期間回復舊版。部署新程式後，確認擁有者登入與帳本、排程的實際同步都通過，再套用 005 撤回舊伺服器角色的應用表與同步序列權限。
 
 ## 數據同步與自動化排程
 

@@ -39,7 +39,7 @@ BEGIN
             EXECUTE format('DROP POLICY %I ON public.%I', existing_policy.policyname, protected_table);
         END LOOP;
         EXECUTE format(
-            'REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated, service_role',
+            'REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated',
             protected_table
         );
     END LOOP;
@@ -79,7 +79,7 @@ $$;
 GRANT INSERT ON public.sync_logs TO authenticated;
 CREATE POLICY sync_log_insert ON public.sync_logs FOR INSERT TO authenticated
     WITH CHECK ((SELECT public.ninja_stock_role()) = 'market_sync');
-REVOKE ALL ON SEQUENCE public.sync_logs_id_seq FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON SEQUENCE public.sync_logs_id_seq FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SEQUENCE public.sync_logs_id_seq TO authenticated;
 
 CREATE FUNCTION public.ninja_watchlist_symbols()

@@ -1,4 +1,4 @@
--- Run on an isolated database after migrations 001–004.
+-- Run on an isolated database after migrations 001–005.
 BEGIN;
 
 INSERT INTO auth.users (id, email) VALUES
