@@ -9,6 +9,7 @@ CREATE TABLE ninja_stock_private.account_roles (
     user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     access_role text UNIQUE NOT NULL CHECK (access_role IN ('owner', 'market_sync'))
 );
+ALTER TABLE ninja_stock_private.account_roles ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE ninja_stock_private.account_roles FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE FUNCTION public.ninja_stock_role()
